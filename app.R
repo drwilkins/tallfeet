@@ -26,7 +26,7 @@ ui <- fluidPage(
       
       # Show a plot of the generated distribution
       mainPanel(
-         plotlyOutput("g")
+         plotOutput("g")
       )
    ),
   hr(),
@@ -52,7 +52,7 @@ observe(vals$yrange<-input$yrange)
 observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height>vals$yrange[1]&height<vals$yrange[2]) )
 
 #Start Plot def
-   output$g <- renderPlotly({
+   output$g <- renderPlot({
      options(viewer=NULL)
 
      
@@ -60,17 +60,18 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
      if(input$classgroup==T){
      grouping="class"}else{grouping=NULL}
      
-    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.5)+aes_string(fill=grouping)+theme_linedraw()+ggtitle("Click and drag to zoom in on an area. Double-click to zoom out")+theme(axis.text=element_text(face="bold",margin = margin(r = 20,t=6) ))+xlab("Foot Size (cm)")+ylab("Height (cm)")
+    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.9)+aes_string(fill=grouping)+theme_linedraw()+#ggtitle("Click and drag to zoom in on an area. Double-click to zoom out")+
+      theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),axis.title=element_text(size=18,face="bold"))+xlab("Foot Size (cm)")+ylab("Height (cm)")
     
     #if user wants to fit lines, add smoother to plot
     if(input$fitline==1){
       g<-g+geom_smooth(method="lm",se=F)+aes_string(col=grouping)+geom_smooth(method="lm",aes(group=1),se=F,linetype="dashed",size=1.2,col="black",show.legend=F)
     }
     
-    
-    #create interactive Plot.ly plot
-    m <- list(l=150, r=20, b=50, t=30) # l = left; r = right; t = top; b = bottom
-    ggplotly(g,dynamicTicks = T)%>% layout(margin=m)
+    g
+    # #create interactive Plot.ly plot (don't really like the output)
+    # m <- list(l=150, r=20, b=50, t=30) # l = left; r = right; t = top; b = bottom
+    # ggplotly(g,dynamicTicks = T)%>% layout(margin=m)
     
    })#End Plot
    
@@ -85,14 +86,14 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
 
 # Define summary table   
     output$summary<-renderTable({
-    s<-data.frame(Class="Overall",N=nrow(vals$x2),MeanFootLn=mean(vals$x2$height,na.rm=T),MedianFootLn=median(vals$x2$height,na.rm=T),ModeFootLn=getmode(vals$x2$height),MeanHeight=mean(vals$x2$height,na.rm=T),MedianHeight=median(vals$x2$height,na.rm=T),ModeHeight=getmode(vals$x2$height))
+    s<-data.frame(Class="Overall",N=nrow(vals$x2),MeanFootLn=mean(vals$x2$footsize,na.rm=T),MedianFootLn=median(vals$x2$footsize,na.rm=T),ModeFootLn=getmode(vals$x2$footsize),MeanHeight=mean(vals$x2$height,na.rm=T),MedianHeight=median(vals$x2$height,na.rm=T),ModeHeight=getmode(vals$x2$height))
     if(input$classgroup==1){
       classes<-sort(unique(vals$x2$class))
       tmp<-data.frame()
       for(i in 1:length(classes)){
         currclass<-classes[i]
         cdf<-subset(vals$x2,class==currclass)
-        cl<-data.frame(Class=as.character(currclass),N=nrow(cdf),MeanFootLn=mean(cdf$height,na.rm=T),MedianFootLn=median(cdf$height,na.rm=T),ModeFootLn=getmode(cdf$height),MeanHeight=mean(cdf$height,na.rm=T),MedianHeight=median(cdf$height,na.rm=T),ModeHeight=getmode(cdf$height))
+        cl<-data.frame(Class=as.character(currclass),N=nrow(cdf),MeanFootLn=mean(cdf$footsize,na.rm=T),MedianFootLn=median(cdf$footsize,na.rm=T),ModeFootLn=getmode(cdf$footsize),MeanHeight=mean(cdf$height,na.rm=T),MedianHeight=median(cdf$height,na.rm=T),ModeHeight=getmode(cdf$height))
         tmp<-rbind(tmp,cl)
       }
       s<-rbind(tmp,s)
