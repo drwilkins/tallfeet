@@ -11,17 +11,15 @@ ui <- fluidPage(
    sidebarLayout(
       sidebarPanel(width=3,
          sliderInput("xrange",
-                     "Foot Size Range (cm)",
-                     min = min(x$footsize),
-                     max = max(x$footsize),
-                     value = c(min(x$footsize),max(x$footsize))),
+                     "Foot Size Range (cm)",min = min(x$footsize),max = max(x$footsize),value = c(min(x$footsize),max(x$footsize))),
         sliderInput("yrange",
                      "Height Range (cm)",
                      min = min(x$height),
                      max = max(x$height),
                      value = c(min(x$height),max(x$height))),
         checkboxInput("classgroup","Color by Class?",FALSE),
-        checkboxInput("fitline","Fit lines?",FALSE)
+        checkboxInput("fitline","Fit lines?",FALSE),
+        actionButton("rst","Reset")
       ),
       
       # Show a plot of the generated distribution
@@ -39,7 +37,7 @@ ui <- fluidPage(
 #**********************************************************
 #**********************************************************
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
 
 #import school data
 x<-read.csv("footvheight.csv")
@@ -66,12 +64,18 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
     
     #if user wants to fit lines, add smoother to plot
     if(input$fitline==1){
+      #Fit dashed line for use in single panel
       g1<-g+geom_smooth(method="lm",se=F)+aes_string(col=grouping)+geom_smooth(method="lm",aes(group=1),se=F,linetype="dashed",size=1.2,col="black",show.legend=F)
+      if(input$classgroup==T){ #Fitline & classgroup
+      #Fit colored lines for ea class for multipanel
       gpanels<-g+geom_smooth(method="lm",se=F)+aes_string(col=grouping,fill=grouping)+facet_wrap(~class)
-    }else{g1<-g;gpanels<-g+facet_wrap(~class)}
-    
-    
-    g2<-plot_grid(g1+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data"))
+      g2<-plot_grid(g1+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data")) #combined plot w/ 2 panels & all fit lines
+      }else{g1<-g+geom_smooth(method="lm",aes(group=1),se=F,linetype="dashed",size=1.2,col="black",show.legend=F)}#Fitline, no classgroup (1 panel)
+    }else{
+      #Classgroup, no fitline
+      g1<-g;gpanels<-g+aes_string(col=grouping,fill=grouping)+facet_wrap(~class)
+      g2<-plot_grid(g1+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data"))
+    }#End Classgroup, no fitline
     
     if(input$classgroup)
     {
@@ -111,6 +115,14 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
     s
     })#End summary table
    
+#Reset button backend
+    observeEvent(input$rst,{
+      updateSliderInput(session,"xrange",min = min(x$footsize),max = max(x$footsize),value = c(min(x$footsize),max(x$footsize)))
+      updateSliderInput(session,"yrange",min = min(x$height),max = max(x$height),value = c(min(x$height),max(x$height)) )
+      updateCheckboxInput(session,"classgroup",value=FALSE)
+      updateCheckboxInput(session,"fitline",value=FALSE)
+    })
+    
 }#End server
 
 # Run the application 
