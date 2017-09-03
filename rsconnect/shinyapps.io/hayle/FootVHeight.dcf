@@ -1,0 +1,12 @@
+name: FootVHeight
+title: FootVHeight
+username:
+account: hayle
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 210065
+bundleId: 965186
+url: https://hayle.shinyapps.io/FootVHeight/
+when: 1504420533.79536
+asMultiple: FALSE
+asStatic: FALSE

@@ -1,5 +1,5 @@
 
-library(shiny);require(plotly);require(ggplot2)
+library(shiny);require(cowplot);require(ggplot2)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -9,7 +9,7 @@ ui <- fluidPage(
    
    # Sidebar with a slider input for number of bins 
    sidebarLayout(
-      sidebarPanel(
+      sidebarPanel(width=3,
          sliderInput("xrange",
                      "Foot Size Range (cm)",
                      min = min(x$footsize),
@@ -60,15 +60,24 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
      if(input$classgroup==T){
      grouping="class"}else{grouping=NULL}
      
-    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.9)+aes_string(fill=grouping)+theme_linedraw()+#ggtitle("Click and drag to zoom in on an area. Double-click to zoom out")+
-      theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),axis.title=element_text(size=18,face="bold"))+xlab("Foot Size (cm)")+ylab("Height (cm)")
+  #make initial plot (no trend line, color depends on grouping)
+    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.9)+aes_string(fill=grouping)+theme_linedraw()+
+      theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),axis.title=element_text(size=18,face="bold"),aspect.ratio=1)+xlab("Foot Size (cm)")+ylab("Height (cm)")+ggtitle("Combined Class Data")
     
     #if user wants to fit lines, add smoother to plot
     if(input$fitline==1){
-      g<-g+geom_smooth(method="lm",se=F)+aes_string(col=grouping)+geom_smooth(method="lm",aes(group=1),se=F,linetype="dashed",size=1.2,col="black",show.legend=F)
-    }
+      g1<-g+geom_smooth(method="lm",se=F)+aes_string(col=grouping)+geom_smooth(method="lm",aes(group=1),se=F,linetype="dashed",size=1.2,col="black",show.legend=F)
+      gpanels<-g+geom_smooth(method="lm",se=F)+aes_string(col=grouping,fill=grouping)+facet_wrap(~class)
+    }else{g1<-g;gpanels<-g+facet_wrap(~class)}
     
-    g
+    
+    g2<-plot_grid(g1+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data"))
+    
+    if(input$classgroup)
+    {
+    plot(g2)
+    }else{plot(g1)}
+    
     # #create interactive Plot.ly plot (don't really like the output)
     # m <- list(l=150, r=20, b=50, t=30) # l = left; r = right; t = top; b = bottom
     # ggplotly(g,dynamicTicks = T)%>% layout(margin=m)
