@@ -1,6 +1,13 @@
 
 library(shiny);require(cowplot);require(ggplot2)
-
+   #Create mode function (weirdly doesn't exist in base R)
+   getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv<-uniqv[which(!is.na(uniqv))]
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+   }
+   
+   
 # Define UI for application that draws a histogram
 ui <- fluidPage(
    
@@ -18,7 +25,8 @@ ui <- fluidPage(
                      max = max(x$height),
                      value = c(min(x$height),max(x$height))),
         checkboxInput("classgroup","Color by Class?",FALSE),
-        checkboxInput("fitline","Fit lines?",FALSE),
+        checkboxInput("fitline","Fit Lines?",FALSE),
+        checkboxInput("hist","Show Histograms?",FALSE),
         actionButton("rst","Reset")
       ),
       
@@ -26,11 +34,12 @@ ui <- fluidPage(
       mainPanel(
          plotOutput("g")
       )
-   ),
+   ),#sidebar layout
   hr(),
   fluidRow(
-    column(8,tableOutput("summary"),offset=0)
-  )
+    column(8,tableOutput("summary"),offset=0),
+  conditionalPanel(condition="input.hist==TRUE",plotOutput("histplot"))
+    )
 )
 
 
@@ -58,9 +67,11 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
      if(input$classgroup==T){
      grouping="class"}else{grouping=NULL}
      
+     #create custome theme for axis formatting
+     mytheme<-theme_linedraw()+theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),axis.title=element_text(size=18,face="bold"))
+     
   #make initial plot (no trend line, color depends on grouping)
-    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.9)+aes_string(fill=grouping)+theme_linedraw()+
-      theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),axis.title=element_text(size=18,face="bold"),aspect.ratio=1)+xlab("Foot Size (cm)")+ylab("Height (cm)")+ggtitle("Combined Class Data")
+    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.9)+aes_string(fill=grouping)+mytheme+theme(aspect.ratio=1)+xlab("Foot Size (cm)")+ylab("Height (cm)")+ggtitle("Combined Class Data")
     
     #if user wants to fit lines, add smoother to plot
     if(input$fitline==1){
@@ -90,16 +101,12 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
    
 ###################   
 #Make a table with summary stuffs
-   #Create mode function (weirdly doesn't exist in base R)
-   getmode <- function(v) {
-   uniqv <- unique(v)
-   uniqv<-uniqv[which(!is.na(uniqv))]
-   uniqv[which.max(tabulate(match(v, uniqv)))]
-    }
+
 
 # Define summary table   
     output$summary<-renderTable({
     s<-data.frame(Class="Overall",N=nrow(vals$x2),MeanFootLn=mean(vals$x2$footsize,na.rm=T),MedianFootLn=median(vals$x2$footsize,na.rm=T),ModeFootLn=getmode(vals$x2$footsize),MeanHeight=mean(vals$x2$height,na.rm=T),MedianHeight=median(vals$x2$height,na.rm=T),ModeHeight=getmode(vals$x2$height))
+
     if(input$classgroup==1){
       classes<-sort(unique(vals$x2$class))
       tmp<-data.frame()
@@ -115,14 +122,46 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
     s
     })#End summary table
    
+
+
+ #plot histograms if checked
+ observe(if(input$hist==T){output$histplot<-renderPlot({
+
+    if(input$classgroup==T){#facet if classgroup checked
+  foothist<- ggplot(vals$x2,aes(footsize))+mytheme+geom_histogram(aes(fill=class),binwidth=3,col="#202020",alpha=1)+geom_vline(aes(xintercept=mean(footsize,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(footsize,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(footsize),col="Mode"),size=1.2,linetype="dotted")+facet_wrap(~class)
+
+  heighthist<-ggplot(vals$x2,aes(height))+mytheme+geom_histogram(aes(fill=class),binwidth=3,col="#202020",alpha=1)+geom_vline(aes(xintercept=mean(height,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(height,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(height),col="Mode"),size=1.2,linetype="dotted")+facet_wrap(~class)
+   }else{#For pooled class data
+     foothist<-ggplot(vals$x2,aes(footsize))+mytheme+geom_histogram(binwidth=3,col="#202020",fill="#202020",alpha=.5)+geom_vline(aes(xintercept=mean(footsize,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(footsize,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(footsize),col="Mode"),size=1.2,linetype="dotted")
+
+   heighthist<-ggplot(vals$x2,aes(height))+mytheme+geom_histogram(binwidth=3,col="#202020",fill="#202020",alpha=.5)+geom_vline(aes(xintercept=mean(height,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(height,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(height),col="Mode"),size=1.2,linetype="dotted")
+   }#End histogram definitions
+
+#Add custom color & legend
+   foothist2<-foothist+scale_color_manual(name="Stats",values=c(Mean="#FFA630",Median="#2E5077",Mode="#E8437F"))+guides(col=guide_legend(override.aes=list(linetype=c("dashed","dashed","dotted"))))+xlab("Foot Size (cm)")
+   heighthist2<-heighthist+scale_color_manual(name="Stats",values=c(Mean="#FFA630",Median="#2E5077",Mode="#E8437F"))+guides(col=guide_legend(override.aes=list(linetype=c("dashed","dashed","dotted"))))+xlab("Height (cm)")
+
+   #extract legend
+   legend<-get_legend(heighthist2+theme(legend.position="top",legend.key.height=unit(1.5,"lines")))
+
+   #return histogram plot
+   plot_grid(foothist2+guides(col=F,fill=F),heighthist2+guides(col=F,fill=F),plot_grid(legend,align="h"),rel_widths=1,rel_heights=c(1,1,.4),nrow=3 )
+
+ })
+ }else{output$histplot<-renderPlot(NULL)} #If hist box not checked, return NULL  
+)#End observe for plot hist
+
+
 #Reset button backend
     observeEvent(input$rst,{
       updateSliderInput(session,"xrange",min = min(x$footsize),max = max(x$footsize),value = c(min(x$footsize),max(x$footsize)))
       updateSliderInput(session,"yrange",min = min(x$height),max = max(x$height),value = c(min(x$height),max(x$height)) )
       updateCheckboxInput(session,"classgroup",value=FALSE)
       updateCheckboxInput(session,"fitline",value=FALSE)
-    })
-    
+      updateCheckboxInput(session,"hist",value=FALSE)
+    })#End reset backend    
+
+
 }#End server
 
 # Run the application 
