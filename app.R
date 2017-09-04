@@ -1,58 +1,8 @@
-
-library(shiny);require(cowplot);require(ggplot2)
-   #Create mode function (weirdly doesn't exist in base R)
-   getmode <- function(v) {
-   uniqv <- unique(v)
-   uniqv<-uniqv[which(!is.na(uniqv))]
-   uniqv[which.max(tabulate(match(v, uniqv)))]
-   }
-   
-   
-# Define UI for application that draws a histogram
-ui <- fluidPage(
-   
-   # Application title
-   titlePanel("Exploring Class Height and Foot Size Data"),
-   
-   # Sidebar with a slider input for number of bins 
-   sidebarLayout(
-      sidebarPanel(width=3,
-         sliderInput("xrange",
-                     "Foot Size Range (cm)",min = min(x$footsize),max = max(x$footsize),value = c(min(x$footsize),max(x$footsize))),
-        sliderInput("yrange",
-                     "Height Range (cm)",
-                     min = min(x$height),
-                     max = max(x$height),
-                     value = c(min(x$height),max(x$height))),
-        checkboxInput("classgroup","Color by Class?",FALSE),
-        checkboxInput("fitline","Fit Lines?",FALSE),
-        checkboxInput("hist","Show Histograms?",FALSE),
-        actionButton("rst","Reset")
-      ),
-      
-      # Show a plot of the generated distribution
-      mainPanel(
-         plotOutput("g")
-      )
-   ),#sidebar layout
-  hr(),
-  fluidRow(
-    column(8,tableOutput("summary"),offset=0),
-  conditionalPanel(condition="input.hist==TRUE",plotOutput("histplot"))
-    )
-)
-
-
-#**********************************************************
-#**********************************************************
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
+library(shiny);require(cowplot);require(ggplot2)
 
-#import school data
-x<-read.csv("footvheight.csv")
-x$class<-factor(x$class)
-
-#define global variables  
+#define variables for all server modules
 vals<-reactiveValues()
 observe(vals$xrange<-input$xrange)
 observe(vals$yrange<-input$yrange)
@@ -60,18 +10,17 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
 
 #Start Plot def
    output$g <- renderPlot({
-     options(viewer=NULL)
-
+     
      
      #If user wants to group by class, set this
-     if(input$classgroup==T){
-     grouping="class"}else{grouping=NULL}
+     if(input$classgroup==T)
+      {grouping="class"}else{grouping=NULL}
      
-     #create custome theme for axis formatting
-     mytheme<-theme_linedraw()+theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),axis.title=element_text(size=18,face="bold"))
+     #create custom theme for axis formatting
+     vals$mytheme<-theme_linedraw()+theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),axis.title=element_text(size=18,face="bold"))
      
   #make initial plot (no trend line, color depends on grouping)
-    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.9)+aes_string(fill=grouping)+mytheme+theme(aspect.ratio=1)+xlab("Foot Size (cm)")+ylab("Height (cm)")+ggtitle("Combined Class Data")
+    g<-ggplot(vals$x2,aes(x=footsize,y=height))+geom_point(size=3,pch=21,col="#202020",stroke=.9)+aes_string(fill=grouping)+vals$mytheme+theme(aspect.ratio=1)+xlab("Foot Size (cm)")+ylab("Height (cm)")+ggtitle("Combined Class Data")
     
     #if user wants to fit lines, add smoother to plot
     if(input$fitline==1){
@@ -83,11 +32,13 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
       g2<-plot_grid(g1+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data")) #combined plot w/ 2 panels & all fit lines
       }else{g1<-g+geom_smooth(method="lm",aes(group=1),se=F,linetype="dashed",size=1.2,col="black",show.legend=F)}#Fitline, no classgroup (1 panel)
     }else{
-      #Classgroup, no fitline
+      if(input$classgroup==T)#Classgroup, no fitline
+      {
       g1<-g;gpanels<-g+aes_string(col=grouping,fill=grouping)+facet_wrap(~class)
       g2<-plot_grid(g1+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data"))
-    }#End Classgroup, no fitline
-    
+      }else{g1<-g}#no classgroup or fitline
+    }#End if/else statements 
+   
     if(input$classgroup)
     {
     plot(g2)
@@ -121,25 +72,24 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
     names(s)<-c("Class","N","Mean Foot Len","Median Foot Len","Mode Foot Len","Mean Height","Median Height","Mode Height")  
     s
     })#End summary table
-   
 
-
+#########################      
  #plot histograms if checked
  observe(if(input$hist==T){output$histplot<-renderPlot({
 
     if(input$classgroup==T){#facet if classgroup checked
-  foothist<- ggplot(vals$x2,aes(footsize))+mytheme+geom_histogram(aes(fill=class),binwidth=3,col="#202020",alpha=1)+geom_vline(aes(xintercept=mean(footsize,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(footsize,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(footsize),col="Mode"),size=1.2,linetype="dotted")+facet_wrap(~class)
+  foothist<- ggplot(vals$x2,aes(footsize))+vals$mytheme+geom_histogram(aes(fill=class),binwidth=3,col="#202020",alpha=1)+geom_vline(aes(xintercept=mean(footsize,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(footsize,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(footsize),col="Mode"),size=1.2,linetype="dotted")+facet_wrap(~class)
 
-  heighthist<-ggplot(vals$x2,aes(height))+mytheme+geom_histogram(aes(fill=class),binwidth=3,col="#202020",alpha=1)+geom_vline(aes(xintercept=mean(height,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(height,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(height),col="Mode"),size=1.2,linetype="dotted")+facet_wrap(~class)
+  heighthist<-ggplot(vals$x2,aes(height))+vals$mytheme+geom_histogram(aes(fill=class),binwidth=3,col="#202020",alpha=1)+geom_vline(aes(xintercept=mean(height,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(height,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(height),col="Mode"),size=1.2,linetype="dotted")+facet_wrap(~class)
    }else{#For pooled class data
-     foothist<-ggplot(vals$x2,aes(footsize))+mytheme+geom_histogram(binwidth=3,col="#202020",fill="#202020",alpha=.5)+geom_vline(aes(xintercept=mean(footsize,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(footsize,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(footsize),col="Mode"),size=1.2,linetype="dotted")
+     foothist<-ggplot(vals$x2,aes(footsize))+vals$mytheme+geom_histogram(binwidth=3,col="#202020",fill="#202020",alpha=.5)+geom_vline(aes(xintercept=mean(footsize,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(footsize,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(footsize),col="Mode"),size=1.2,linetype="dotted")
 
-   heighthist<-ggplot(vals$x2,aes(height))+mytheme+geom_histogram(binwidth=3,col="#202020",fill="#202020",alpha=.5)+geom_vline(aes(xintercept=mean(height,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(height,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(height),col="Mode"),size=1.2,linetype="dotted")
+   heighthist<-ggplot(vals$x2,aes(height))+vals$mytheme+geom_histogram(binwidth=3,col="#202020",fill="#202020",alpha=.5)+geom_vline(aes(xintercept=mean(height,na.rm=T),col="Mean"),size=1.2)+geom_vline(aes(xintercept=median(height,na.rm=T),col="Median"),size=1.2,linetype="dashed")+geom_vline(aes(xintercept=getmode(height),col="Mode"),size=1.2,linetype="dotted")
    }#End histogram definitions
 
 #Add custom color & legend
    foothist2<-foothist+scale_color_manual(name="Stats",values=c(Mean="#FFA630",Median="#2E5077",Mode="#E8437F"))+guides(col=guide_legend(override.aes=list(linetype=c("dashed","dashed","dotted"))))+xlab("Foot Size (cm)")
-   heighthist2<-heighthist+scale_color_manual(name="Stats",values=c(Mean="#FFA630",Median="#2E5077",Mode="#E8437F"))+guides(col=guide_legend(override.aes=list(linetype=c("dashed","dashed","dotted"))))+xlab("Height (cm)")
+   heighthist2<-heighthist+scale_color_manual(name="Stats",values=c(Mean="#FFA630",Median="#2E5077",Mode="#E8437F"))+guides(col=guide_legend(override.aes=list(linetype=c("solid","dashed","dotted"))))+xlab("Height (cm)")
 
    #extract legend
    legend<-get_legend(heighthist2+theme(legend.position="top",legend.key.height=unit(1.5,"lines")))
@@ -148,7 +98,7 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
    plot_grid(foothist2+guides(col=F,fill=F),heighthist2+guides(col=F,fill=F),plot_grid(legend,align="h"),rel_widths=1,rel_heights=c(1,1,.4),nrow=3 )
 
  })
- }else{output$histplot<-renderPlot(NULL)} #If hist box not checked, return NULL  
+ }else{output$histplot<-renderPlot(NULL)} #If hist box not checked, return NULL
 )#End observe for plot hist
 
 
@@ -163,6 +113,47 @@ observe(vals$x2<-subset(x,footsize>vals$xrange[1]&footsize<vals$xrange[2]&height
 
 
 }#End server
+
+
+#**********************************************************
+#**********************************************************
+
+
+
+# Define UI for application that draws a histogram
+ui <- fluidPage(
+   
+   # Application title
+   titlePanel("Exploring Class Height and Foot Size Data"),
+   
+   # Sidebar with a slider input for number of bins 
+   sidebarLayout(
+      sidebarPanel(width=3,
+         sliderInput("xrange",
+                     "Foot Size Range (cm)",min = min(x$footsize),max = max(x$footsize),value = c(min(x$footsize),max(x$footsize))),
+        sliderInput("yrange",
+                     "Height Range (cm)",
+                     min = min(x$height),
+                     max = max(x$height),
+                     value = c(min(x$height),max(x$height))),
+        checkboxInput("classgroup","Color by Class?",FALSE),
+        checkboxInput("fitline","Fit Lines?",FALSE),
+        checkboxInput("hist","Show Histograms?",FALSE),
+        actionButton("rst","Reset")
+      ),
+      
+      # Show a plot of the generated distribution
+      mainPanel(
+         plotOutput("g")
+      )
+   ),#sidebar layout
+  hr(),
+  fluidRow(column(8,tableOutput("summary"),offset=0)),
+  fluidRow(conditionalPanel(condition="input.hist==TRUE",plotOutput("histplot")))
+    
+)
+
+
 
 # Run the application 
 shinyApp(ui = ui, server = server)
