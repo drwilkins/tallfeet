@@ -7,5 +7,5 @@
    }
    
    #import school data
-x<-read.csv("www/footvheight.csv")
+x<-read.csv("data/footvheight.csv")
 x$class<-factor(x$class)

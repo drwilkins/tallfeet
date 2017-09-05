@@ -1,4 +1,5 @@
 # Define server logic required to draw a histogram
+source("global.R")
 server <- function(input, output, session) {
 library(shiny);require(cowplot);require(ggplot2)
 
@@ -149,7 +150,7 @@ ui <- fluidPage(
    ),#sidebar layout
   hr(),
   fluidRow(column(8,tableOutput("summary"),offset=0)),
-  fluidRow(conditionalPanel(condition="input.hist==TRUE",plotOutput("histplot")))
+  fluidRow(plotOutput("histplot"),height=600)
     
 )
 
