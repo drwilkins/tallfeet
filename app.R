@@ -9,7 +9,6 @@ isolate(vals$grouping<-NULL)
 observe(vals$xrange<-input$xrange)
 observe(vals$yrange<-input$yrange)
 observe({vals$x2<-subset(x,footsize>=input$xrange[1]&footsize<=input$xrange[2]&height>=input$yrange[1]&height<=input$yrange[2]&grade%in%input$DFs) 
-  print(input$DFs)
   })
 isolate(vals$x2_group<-list(vals$x2))
 
@@ -109,7 +108,7 @@ output$g <- renderPlot({
         tmp<-rbind(tmp,cl)
       }
       if(input$fitline){
-        modresults<-t(sapply(levels(vals$x2$class),function(clase){ df=subset(vals$x2,class==clase); ymxb(df,form="height~footsize")}))
+        modresults<-t(sapply(unique(vals$x2$class),function(clase){ df=subset(vals$x2,class==clase); ymxb(df,form="height~footsize")}))
         tmp<-cbind(tmp,modresults)
         }
       s<-rbind(tmp,s)
