@@ -1,14 +1,15 @@
 # Define server logic required to draw a histogram
-source("global.R")
 server <- function(input, output, session) {
 library(shiny);require(cowplot);require(ggplot2);require(rlang)
-
+source("global.R")
 #define variables for all server modules
 vals<-reactiveValues()
 isolate(vals$grouping<-NULL)
 observe(vals$xrange<-input$xrange)
 observe(vals$yrange<-input$yrange)
-observe(vals$x2<-subset(x,footsize>=input$xrange[1]&footsize<=input$xrange[2]&height>=input$yrange[1]&height<=input$yrange[2]) )
+observe({vals$x2<-subset(x,footsize>=input$xrange[1]&footsize<=input$xrange[2]&height>=input$yrange[1]&height<=input$yrange[2]&grade%in%input$DFs) 
+  print(input$DFs)
+  })
 isolate(vals$x2_group<-list(vals$x2))
 
 observeEvent(input$classgroup,
@@ -24,11 +25,12 @@ observe(#create custom theme for axis formatting
 output$g <- renderPlot({
   
   #function def  
-  myplot<-function(data,x,y,grp,...){
+  myplot<-function(data,x,y,grp,shape,...){
       x<-enquo(x)
       y<-enquo(y)
       grp<-enquo(grp)
-      g<-ggplot(data,aes(!!x,!!y,col=!!grp))+vals$mytheme+theme(aspect.ratio=1)+xlab("Foot Length (in)")+ylab("Height (in)")+ggtitle("Combined Class Data")+
+      shape<-enquo(shape)
+      g<-ggplot(data,aes(!!x,!!y,col=!!grp,shape=!!shape))+vals$mytheme+theme(aspect.ratio=1)+xlab("Foot Length (in)")+ylab("Height (in)")+ggtitle("Combined Class Data")+scale_shape_manual(values=c(1,2))+
         {if(input$zero){expand_limits(x=0,y=0)}else{}}+
         {if(input$same){expand_limits(x=vals$yrange[2])}else{}}+
         {if(input$fitline==T){geom_smooth(method="lm",aes(group=1),se=F,linetype="dashed",size=1.2,col="black",show.legend=F)}else{}
@@ -36,14 +38,14 @@ output$g <- renderPlot({
       
     if(input$classgroup==T){ 
     #Fit colored lines for ea class for multipanel
-    gpanels<-g+geom_point(aes(col=!!grp),stroke=1.2,size=4,pch=21)+geom_point(aes(fill=!!grp),alpha=.2,size=4,pch=21)+facet_wrap(as.formula(paste0(as.character(grp),collapse="")))+if(input$fitline==T){geom_smooth(method="lm",se=F,aes(!!x,!!y,col=!!grp))}else{}
-    g1<-plot_grid(g+geom_point(size=4,pch=21,col="#202020",stroke=.9)+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data")) #combined plot w/ 2 panels & all fit lines
-    }else{g1<-g+geom_point(size=4,pch=21,col="#202020",stroke=.9)}
+    gpanels<-g+geom_point(aes(col=!!grp),stroke=1.2,size=4)+geom_point(aes(fill=!!grp),alpha=.2,size=4,pch=21)+facet_wrap(as.formula(paste0(as.character(grp),collapse="")))+if(input$fitline==T){geom_smooth(method="lm",se=F,aes(!!x,!!y,col=!!grp))}else{}
+    g1<-plot_grid(g+geom_point(size=4,col="#202020",stroke=.9)+guides(fill=F,col=F),gpanels+ggtitle("Separated Class Data")) #combined plot w/ 2 panels & all fit lines
+    }else{g1<-g+geom_point(size=4,col="#202020",stroke=.9)}
       g1
 
       }
     
-  myplot(vals$x2,x=footsize,y=height,grp=class)
+  myplot(vals$x2,x=footsize,y=height,grp=class,shape=grade)
     
     
   #make initial plot (no trend line, color depends on grouping)
@@ -91,7 +93,9 @@ output$g <- renderPlot({
       
     s<-data.frame(Class="Overall",N=nrow(vals$x2),MeanFootLn=mean(vals$x2$footsize,na.rm=T),MedianFootLn=median(vals$x2$footsize,na.rm=T),ModeFootLn=getmode(vals$x2$footsize),MeanHeight=mean(vals$x2$height,na.rm=T),MedianHeight=median(vals$x2$height,na.rm=T),ModeHeight=getmode(vals$x2$height))
  
-    if(input$fitline){s$LineEQ=ymxb(vals$x2,"height~footsize")}
+    if(input$fitline){
+      mod<-as.data.frame(ymxb(vals$x2,"height~footsize"))
+      s<-cbind(s,mod)}
 
     if(input$classgroup==1){
       classes<-sort(unique(vals$x2$class))
@@ -104,14 +108,15 @@ output$g <- renderPlot({
         tmp<-rbind(tmp,cl)
       }
       if(input$fitline){
-        tmp$LineEQ=sapply(levels(vals$x2$class),function(clase){ df=subset(vals$x2,class==clase); ymxb(df,form="height~footsize")})
+        modresults<-t(sapply(levels(vals$x2$class),function(clase){ df=subset(vals$x2,class==clase); ymxb(df,form="height~footsize")}))
+        tmp<-cbind(tmp,modresults)
         }
       s<-rbind(tmp,s)
       
     }
   names(s)[1:8]<-c("Class","N","Mean Foot Len","Median Foot Len","Mode Foot Len","Mean Height","Median Height","Mode Height")  
     s
-    })#End summary table
+    }, width="auto")#End summary table
 
 #########################      
  #plot histograms if checked
@@ -170,7 +175,8 @@ ui <- fluidPage(
 fluidRow(
   sidebarLayout(
       sidebarPanel(width=3,
-         sliderInput("xrange",
+        checkboxGroupInput("DFs","Include which data?",choiceNames=c("Davis7thGrade","Hayle5thGrade"),selected=7,choiceValues=c(7,5)),
+        sliderInput("xrange",
                      "Foot Length Range (in)",min = min(x$footsize,na.rm=T),max = max(x$footsize,na.rm=T),value = c(min(x$footsize,na.rm=T),max(x$footsize,na.rm=T))),
         sliderInput("yrange",
                      "Height Range (in)",
