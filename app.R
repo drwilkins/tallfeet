@@ -1,7 +1,8 @@
 # Define server logic required to draw a histogram
+source("global.R")
 server <- function(input, output, session) {
 library(shiny);require(cowplot);require(ggplot2);require(rlang)
-source("global.R")
+
 #define variables for all server modules
 vals<-reactiveValues()
 isolate(vals$grouping<-NULL)
@@ -20,7 +21,7 @@ observeEvent(input$classgroup,
 observe(vals$aes<-paste("x=footsize","y=height",paste0("fill=",ifelse(is.null(vals$grouping),"NULL",vals$grouping)),sep=",")) 
 
 observe(#create custom theme for axis formatting
-     vals$mytheme<-theme_linedraw()+theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),plot.title = element_text(size = 15),axis.title=element_text(size=18,face="bold"), strip.text.x = element_text(size = 15)))
+     vals$mytheme<-theme_linedraw()+theme(axis.text=element_text(size=16,margin = margin(r = 20,t=6) ),plot.title = element_text(size = 18, face="bold"),axis.title=element_text(size=18), strip.text.x = element_text(size = 15),legend.title = element_text(size=15,face="bold"), legend.text = element_text(size=15, face="bold")))
 
 output$g <- renderPlot({
   

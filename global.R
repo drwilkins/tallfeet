@@ -18,12 +18,12 @@ ymxb<-function(data,form){
 }
    
    #import school data
-x0<-read.csv("data/footvheight_Davis 2020.csv")
+x0<-read.csv("data/footvheight_Davis_2020.csv")
 names(x0)<-tolower(names(x0)) #lower case everything
 names(x0)<-gsub("period","class",names(x0),fixed=T)#if period is used instead of class
 
 
-g5<-read.csv("data/footvheight_Hayle 2017.csv")
+g5<-read.csv("data/footvheight_Hayle_2017.csv")
 names(g5)[4:5]<-c("height","footsize")
 g5.b<-g5[,c("height","footsize","class")]
 g5.b$gender=NA
